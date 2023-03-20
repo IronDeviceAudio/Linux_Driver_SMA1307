@@ -1,0 +1,23 @@
+/*
+ * Device tree example source for SMA1307/SMA1307A Amp
+ * name : sma1307_example.dts
+ * Compile for dts
+ * dtc -@ -I dts -O dtb -o sma1307_example.dtbo sma1307_example.dts
+ */
+
+/dts-v1/;
+/plugin/;
+
+			
+&i2c{
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	sma1307_amp: sma1307@1e {
+		#sound-dai-cells = <0>;
+		compatible = "irondevice,sma1307";
+		reg = <0x1e>;
+		status = "okay";
+	};
+};

@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
  * sma1307.h -- sma1307 ALSA SoC Audio driver
  *
- * r028, 2022.12.27
- *
  * Copyright 2020 Iron Device Corporation
  *
  * This program is free software; you can redistribute it and/or modify

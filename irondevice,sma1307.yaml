@@ -28,6 +28,10 @@ properties:
     description:
       Define the gpio pin for connecting interrupt pin
 
+  amp-mode:
+    description:
+      Set mode of SMA1307
+
   '#sound-dai-cells':
     const: 1
 
@@ -48,6 +52,7 @@ examples:
             compatible = "irondevice,sma1307";
             reg = <0x1e>;
             gpio-int = <&gpio 4 0>;
+            amp-mode = <1>;
             #sound-dai-cells = <1>;
         };
     };
