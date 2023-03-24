@@ -569,6 +569,19 @@ static int sma1307_startup(struct snd_soc_component *component)
 			change = true;
 	}
 
+	if (!sma1307->force_mute_status) {
+		sma1307_regmap_update_bits(sma1307,
+				SMA1307_0E_MUTE_VOL_CTRL,
+				SMA1307_SPK_MUTE_MASK,
+				SMA1307_SPK_UNMUTE,
+				&temp);
+		if (temp == true)
+			change = true;
+	} else {
+		dev_dbg(sma1307->dev,
+				"%s : FORCE MUTE!!!\n", __func__);
+	}
+
 	if (!gpio_is_valid(sma1307->gpio_int)
 		&& (sma1307->check_fault_status)) {
 		if (sma1307->check_fault_period > 0)
@@ -626,6 +639,14 @@ static int sma1307_shutdown(struct snd_soc_component *component)
 	/* for SMA1307A */
 	cancel_delayed_work_sync(&sma1307->check_fault_work);
 
+	sma1307_regmap_update_bits(sma1307, SMA1307_0E_MUTE_VOL_CTRL,
+			SMA1307_SPK_MUTE_MASK, 	SMA1307_SPK_MUTE, &temp);
+	if (temp == true)
+		change = true;
+
+	/* Need to wait time for mute slope */
+	msleep(55);
+
 	sma1307_regmap_update_bits(sma1307, SMA1307_10_SYSTEM_CTRL1,
 			SMA1307_SPK_MODE_MASK, SMA1307_SPK_OFF, &temp);
 	if (temp == true)
@@ -652,7 +673,7 @@ static int sma1307_aif_in_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(w->dapm);
 	struct sma1307_priv *sma1307 = snd_soc_component_get_drvdata(component);
-	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
+	unsigned int mux = sma1307->dapm_aif_in;
 	int ret = 0;
 	bool change = false, temp = false;
 
@@ -719,7 +740,7 @@ static int sma1307_sdo_setting_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(w->dapm);
 	struct sma1307_priv *sma1307 = snd_soc_component_get_drvdata(component);
-	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
+	unsigned int mux = sma1307->dapm_sdo_setting;
 	int ret = 0;
 	bool change = false, temp = false;
 
@@ -825,7 +846,7 @@ static int sma1307_aif_out0_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(w->dapm);
 	struct sma1307_priv *sma1307 = snd_soc_component_get_drvdata(component);
-	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
+	unsigned int mux = sma1307->dapm_aif_out0;
 	int ret = 0;
 	bool change = false;
 
@@ -909,7 +930,7 @@ static int sma1307_aif_out1_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(w->dapm);
 	struct sma1307_priv *sma1307 = snd_soc_component_get_drvdata(component);
-	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
+	unsigned int mux = sma1307->dapm_aif_out1;
 	int ret = 0;
 	bool change = false;
 
@@ -998,8 +1019,7 @@ static int sma1307_amp_mode_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		sma1307->spk_rcv_mode
-			= dapm_kcontrol_get_value(w->kcontrols[0]);
+		sma1307->spk_rcv_mode = sma1307->dapm_amp_mode;
 		if (origin != sma1307->spk_rcv_mode) {
 			sma1307_spk_rcv_conf(component);
 			change = true;
@@ -1459,7 +1479,7 @@ static const struct snd_kcontrol_new sma1307_sdo_control =
 		.info = snd_soc_info_volsw,
 		.get = sma1307_dapm_sdo_enable_get,
 		.put = sma1307_dapm_sdo_enable_put,
-		.private_value = SOC_SINGLE_VALUE(SND_SOC_NOPM, 0, 1, 0, 0)
+		.private_value = SOC_SINGLE_VALUE(SND_SOC_NOPM, 0, 1, 1, 0)
 	};
 static const struct snd_kcontrol_new sma1307_enable_control =
 	{
@@ -1468,7 +1488,7 @@ static const struct snd_kcontrol_new sma1307_enable_control =
 		.info = snd_soc_info_volsw,
 		.get = sma1307_dapm_amp_enable_get,
 		.put = sma1307_dapm_amp_enable_put,
-		.private_value = SOC_SINGLE_VALUE(SND_SOC_NOPM, 0, 1, 0, 0)
+		.private_value = SOC_SINGLE_VALUE(SND_SOC_NOPM, 0, 1, 1, 0)
 	};
 
 static const struct snd_kcontrol_new sma1307_snd_controls[] = {
@@ -1966,46 +1986,6 @@ static int sma1307_dai_set_sysclk_amp(struct snd_soc_dai *dai,
 	return 0;
 }
 
-static int sma1307_dai_mute(struct snd_soc_dai *dai, int mute, int stream)
-{
-	struct snd_soc_component *component = dai->component;
-	struct sma1307_priv *sma1307 = snd_soc_component_get_drvdata(component);
-	int ret = 0;
-
-	if (stream == SNDRV_PCM_STREAM_CAPTURE)
-		return ret;
-
-	if (mute) {
-		dev_dbg(component->dev, "%s : %s\n", __func__, "MUTE");
-
-		ret += sma1307_regmap_update_bits(sma1307,
-				SMA1307_0E_MUTE_VOL_CTRL,
-				SMA1307_SPK_MUTE_MASK,
-				SMA1307_SPK_MUTE,
-				NULL);
-
-		/* Need to wait time for mute slope */
-		msleep(55);
-	} else {
-		if (!sma1307->force_mute_status) {
-			dev_dbg(component->dev, "%s : %s\n",
-					__func__, "UNMUTE");
-			ret += sma1307_regmap_update_bits(sma1307,
-					SMA1307_0E_MUTE_VOL_CTRL,
-					SMA1307_SPK_MUTE_MASK,
-					SMA1307_SPK_UNMUTE,
-					NULL);
-		} else {
-			dev_dbg(sma1307->dev,
-					"%s : FORCE MUTE!!!\n", __func__);
-		}
-	}
-
-	if (ret < 0)
-		return -EINVAL;
-	return 0;
-}
-
 static int sma1307_dai_set_fmt_amp(struct snd_soc_dai *dai,
 					unsigned int fmt)
 {
@@ -2196,7 +2176,6 @@ static int sma1307_dai_set_tdm_slot(struct snd_soc_dai *dai,
 
 static const struct snd_soc_dai_ops sma1307_dai_ops_amp = {
 	.hw_params = sma1307_dai_hw_params_amp,
-	.mute_stream = sma1307_dai_mute,
 	.set_fmt = sma1307_dai_set_fmt_amp,
 	.set_sysclk = sma1307_dai_set_sysclk_amp,
 	.set_tdm_slot = sma1307_dai_set_tdm_slot,
@@ -2590,10 +2569,12 @@ static int sma1307_i2c_probe(struct i2c_client *client,
 				return -EINVAL;
 			}
 			sma1307->dapm_amp_mode = value;
+			sma1307->spk_rcv_mode = value;
 		} else {
 			dev_dbg(&client->dev,
 				"Set speaker mode2(default)\n");
 			sma1307->dapm_amp_mode = SMA1307_SPEAKER_MODE2;
+			sma1307->spk_rcv_mode = SMA1307_SPEAKER_MODE2;
 		}
 		sma1307->gpio_int = of_get_named_gpio(np,
 				"gpio-int", 0);
@@ -2728,14 +2709,14 @@ static int sma1307_i2c_probe(struct i2c_client *client,
 	return ret;
 }
 
-static int sma1307_i2c_remove(struct i2c_client *client)
+static void sma1307_i2c_remove(struct i2c_client *client)
 {
 	struct sma1307_priv *sma1307 =
 		(struct sma1307_priv *) i2c_get_clientdata(client);
 
 	cancel_delayed_work_sync(&sma1307->check_fault_work);
 
-	return 0;
+	return;
 }
 
 static const struct i2c_device_id sma1307_i2c_id[] = {
