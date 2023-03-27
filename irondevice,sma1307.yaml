@@ -52,7 +52,7 @@ examples:
             compatible = "irondevice,sma1307";
             reg = <0x1e>;
             gpio-int = <&gpio 4 0>;
-            amp-mode = <1>;
+            amp-mode = <2>;
             #sound-dai-cells = <1>;
         };
     };
