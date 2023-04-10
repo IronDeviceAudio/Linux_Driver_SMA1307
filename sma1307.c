@@ -34,7 +34,7 @@
 
 #include "sma1307.h"
 
-#define DRIVER_VERSION "V0.0.3"
+#define DRIVER_VERSION "V0.0.4"
 #define CHECK_PERIOD_TIME 1 /* sec per HZ */
 #define GAIN_CONT_5_MIN 30
 #define GAIN_CONT_1_MIN 6
@@ -1481,7 +1481,7 @@ static const struct snd_kcontrol_new sma1307_sdo_control =
 		.info = snd_soc_info_volsw,
 		.get = sma1307_dapm_sdo_enable_get,
 		.put = sma1307_dapm_sdo_enable_put,
-		.private_value = SOC_SINGLE_VALUE(SND_SOC_NOPM, 0, 1, 1, 0)
+		.private_value = SOC_SINGLE_VALUE(SND_SOC_NOPM, 0, 1, 0, 0)
 	};
 static const struct snd_kcontrol_new sma1307_enable_control =
 	{
@@ -1490,7 +1490,7 @@ static const struct snd_kcontrol_new sma1307_enable_control =
 		.info = snd_soc_info_volsw,
 		.get = sma1307_dapm_amp_enable_get,
 		.put = sma1307_dapm_amp_enable_put,
-		.private_value = SOC_SINGLE_VALUE(SND_SOC_NOPM, 0, 1, 1, 0)
+		.private_value = SOC_SINGLE_VALUE(SND_SOC_NOPM, 0, 1, 0, 0)
 	};
 
 static const struct snd_kcontrol_new sma1307_snd_controls[] = {
@@ -1540,7 +1540,7 @@ static const struct snd_soc_dapm_widget sma1307_dapm_widgets[] = {
 	SND_SOC_DAPM_OUT_DRV_E("AMP Power", SND_SOC_NOPM, 0, 0, NULL, 0,
 			sma1307_power_event,
 			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_SWITCH("AMP Enable", SND_SOC_NOPM, 0, 1,
+	SND_SOC_DAPM_SWITCH("AMP Enable", SND_SOC_NOPM, 0, 0,
 			&sma1307_enable_control),
 
 	/* stream domain */
@@ -1586,6 +1586,7 @@ static const struct snd_soc_dapm_route sma1307_audio_map[] = {
 
 	{"AMP Mode", "Speaker_Mode1", "Entry"},
 	{"AMP Mode", "Speaker_Mode2", "Entry"},
+	{"AMP Mode", "Speaker_Mode3", "Entry"},
 	{"AMP Mode", "Receiver_Mode1", "Entry"},
 	{"AMP Mode", "Receiver_Mode2", "Entry"},
 
@@ -2656,8 +2657,8 @@ static int sma1307_i2c_probe(struct i2c_client *client,
 	sma1307->dapm_aif_in = 0;
 	sma1307->dapm_aif_out0 = 0;
 	sma1307->dapm_aif_out1 = 0;
-	sma1307->dapm_amp_en = 1;
-	sma1307->dapm_sdo_en = 1;
+	sma1307->dapm_amp_en = 0;
+	sma1307->dapm_sdo_en = 0;
 	sma1307->dapm_sdo_setting = 0;
 
 	mutex_init(&sma1307->pwr_lock);
