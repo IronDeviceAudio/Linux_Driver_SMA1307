@@ -34,7 +34,7 @@
 
 #include "sma1307.h"
 
-#define DRIVER_VERSION "V0.0.4"
+#define DRIVER_VERSION "V0.0.5"
 #define CHECK_PERIOD_TIME 1 /* sec per HZ */
 #define GAIN_CONT_5_MIN 30
 #define GAIN_CONT_1_MIN 6
@@ -287,7 +287,8 @@ static bool sma1307_volatile_register(struct device *dev, unsigned int reg)
 }
 
 /* DB scale conversion of speaker volume */
-static const DECLARE_TLV_DB_SCALE(sma1307_spk_tlv, -6000, 50, 0);
+static const DECLARE_TLV_DB_RANGE(sma1307_spk_tlv, 
+			0, 168, TLV_DB_MINMAX_ITEM(2400, -6000));
 
 static int sma1307_regmap_write(struct sma1307_priv *sma1307,
 			unsigned int reg, unsigned int val)
@@ -594,17 +595,16 @@ static int sma1307_startup(struct snd_soc_component *component)
 			queue_delayed_work(system_freezable_wq,
 				&sma1307->check_fault_work,
 					CHECK_PERIOD_TIME * HZ);
-	}
-
-	sma1307->amp_power_status = true;
-
-	sma1307_regmap_update_bits(sma1307,
+	} else {
+		sma1307_regmap_update_bits(sma1307,
 			SMA1307_93_INT_CTRL,
 			SMA1307_DIS_INT_MASK,
 			SMA1307_NORMAL_INT,
 			&temp);
-	if (temp == true)
-		change = true;
+		if (temp == true)
+			change = true;
+	}
+	sma1307->amp_power_status = true;
 
 	if (sma1307->isr_manual_mode) {
 		sma1307_regmap_update_bits(sma1307,
@@ -661,6 +661,14 @@ static int sma1307_shutdown(struct snd_soc_component *component)
 
 	sma1307_regmap_update_bits(sma1307, SMA1307_00_SYSTEM_CTRL,
 			SMA1307_POWER_MASK, SMA1307_POWER_OFF, &temp);
+	if (temp == true)
+		change = true;
+
+	sma1307_regmap_update_bits(sma1307,
+			SMA1307_93_INT_CTRL,
+			SMA1307_DIS_INT_MASK,
+			SMA1307_HIGH_Z_INT,
+			&temp);
 	if (temp == true)
 		change = true;
 
@@ -1495,11 +1503,11 @@ static const struct snd_kcontrol_new sma1307_enable_control =
 
 static const struct snd_kcontrol_new sma1307_snd_controls[] = {
 	SND_SOC_BYTES_EXT("Register Byte Control", 2,
-		sma1307_register_read, sma1307_register_write),
+			sma1307_register_read, sma1307_register_write),
 	SOC_SINGLE_TLV("Speaker Volume", SMA1307_0A_SPK_VOL,
-		0, 167, 1, sma1307_spk_tlv),
+			0, 168, 0, sma1307_spk_tlv),
 	SOC_SINGLE_BOOL_EXT("Force Mute Switch", 0,
-		sma1307_force_mute_get, sma1307_force_mute_put),
+			sma1307_force_mute_get, sma1307_force_mute_put),
 	SOC_ENUM_EXT("TDM RX Slot Position", sma1307_tdm_slot_enum,
 			sma1307_tdm_slot_rx_get, sma1307_tdm_slot_rx_put),
 	SOC_ENUM_EXT("TDM TX Slot Position", sma1307_tdm_slot_enum,
@@ -1610,10 +1618,13 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0xD0);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0xE8);
+		sma1307_regmap_write(sma1307, SMA1307_11_SYSTEM_CTRL2, 0x01);
 		sma1307_regmap_write(sma1307, SMA1307_13_DELAY, 0x19);
 		sma1307_regmap_write(sma1307, SMA1307_14_MODULATOR, 0x5C);
 		sma1307_regmap_write(sma1307, SMA1307_1E_TONE_GENERATOR, 0xE1);
-		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x04);
+		sma1307_regmap_write(sma1307, SMA1307_23_COMPLIM1, 0x1F);
+		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x7A);
+		sma1307_regmap_write(sma1307, SMA1307_34_OCP_SPK, 0x00);
 		sma1307_regmap_write(sma1307, SMA1307_35_FDPEC_CTRL0, 0x40);
 		sma1307_regmap_write(sma1307, SMA1307_3E_IDLE_MODE_CTRL, 0x07);
 		sma1307_regmap_write(sma1307, SMA1307_8F_ANALOG_TEST, 0x00);
@@ -1632,10 +1643,13 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0xD0);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0xE8);
+		sma1307_regmap_write(sma1307, SMA1307_11_SYSTEM_CTRL2, 0x01);
 		sma1307_regmap_write(sma1307, SMA1307_13_DELAY, 0x19);
 		sma1307_regmap_write(sma1307, SMA1307_14_MODULATOR, 0x5C);
 		sma1307_regmap_write(sma1307, SMA1307_1E_TONE_GENERATOR, 0xE1);
-		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x04);
+		sma1307_regmap_write(sma1307, SMA1307_23_COMPLIM1, 0x1F);
+		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x7A);
+		sma1307_regmap_write(sma1307, SMA1307_34_OCP_SPK, 0x00);
 		sma1307_regmap_write(sma1307, SMA1307_35_FDPEC_CTRL0, 0x45);
 		sma1307_regmap_write(sma1307, SMA1307_3E_IDLE_MODE_CTRL, 0x07);
 		sma1307_regmap_write(sma1307, SMA1307_8F_ANALOG_TEST, 0x00);
@@ -1654,10 +1668,13 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0x50);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0x08);
+		sma1307_regmap_write(sma1307, SMA1307_11_SYSTEM_CTRL2, 0x21);
 		sma1307_regmap_write(sma1307, SMA1307_13_DELAY, 0x09);
 		sma1307_regmap_write(sma1307, SMA1307_14_MODULATOR, 0x12);
 		sma1307_regmap_write(sma1307, SMA1307_1E_TONE_GENERATOR, 0xA1);
-		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x7A);
+		sma1307_regmap_write(sma1307, SMA1307_23_COMPLIM1, 0x50);
+		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x0A);
+		sma1307_regmap_write(sma1307, SMA1307_34_OCP_SPK, 0x00);
 		sma1307_regmap_write(sma1307, SMA1307_35_FDPEC_CTRL0, 0x16);
 		sma1307_regmap_write(sma1307, SMA1307_3E_IDLE_MODE_CTRL, 0x01);
 		sma1307_regmap_write(sma1307, SMA1307_8F_ANALOG_TEST, 0x02);
@@ -1676,10 +1693,13 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0x50);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0x08);
+		sma1307_regmap_write(sma1307, SMA1307_11_SYSTEM_CTRL2, 0x01);
 		sma1307_regmap_write(sma1307, SMA1307_13_DELAY, 0x09);
 		sma1307_regmap_write(sma1307, SMA1307_14_MODULATOR, 0x12);
 		sma1307_regmap_write(sma1307, SMA1307_1E_TONE_GENERATOR, 0xA1);
+		sma1307_regmap_write(sma1307, SMA1307_23_COMPLIM1, 0x1F);
 		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x7A);
+		sma1307_regmap_write(sma1307, SMA1307_34_OCP_SPK, 0x00);
 		sma1307_regmap_write(sma1307, SMA1307_35_FDPEC_CTRL0, 0x16);
 		sma1307_regmap_write(sma1307, SMA1307_3E_IDLE_MODE_CTRL, 0x01);
 		sma1307_regmap_write(sma1307, SMA1307_8F_ANALOG_TEST, 0x02);
@@ -1698,10 +1718,13 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0x50);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0x08);
+		sma1307_regmap_write(sma1307, SMA1307_11_SYSTEM_CTRL2, 0x01);
 		sma1307_regmap_write(sma1307, SMA1307_13_DELAY, 0x09);
 		sma1307_regmap_write(sma1307, SMA1307_14_MODULATOR, 0x12);
 		sma1307_regmap_write(sma1307, SMA1307_1E_TONE_GENERATOR, 0xA1);
+		sma1307_regmap_write(sma1307, SMA1307_23_COMPLIM1, 0x1F);
 		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x7A);
+		sma1307_regmap_write(sma1307, SMA1307_34_OCP_SPK, 0x01);
 		sma1307_regmap_write(sma1307, SMA1307_35_FDPEC_CTRL0, 0x17);
 		sma1307_regmap_write(sma1307, SMA1307_3E_IDLE_MODE_CTRL, 0x01);
 		sma1307_regmap_write(sma1307, SMA1307_8F_ANALOG_TEST, 0x02);
@@ -1713,16 +1736,7 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_A9_BOOST_CTRL2, 0x27);
 		sma1307_regmap_write(sma1307, SMA1307_AB_BOOST_CTRL4, 0x10);
 		sma1307_regmap_write(sma1307, SMA1307_AD_BOOST_CTRL6, 0x0F);
-		sma1307_regmap_write(sma1307, SMA1307_34_OCP_SPK, 0x01);
 		sma1307_regmap_write(sma1307, SMA1307_99_OTP_TRM2, 0x00);
-		sma1307_regmap_write(sma1307, SMA1307_11_SYSTEM_CTRL2, 0x00);
-		sma1307_regmap_write(sma1307, SMA1307_22_COMP_HYS_SEL, 0x00);
-		sma1307_regmap_write(sma1307, SMA1307_23_COMPLIM1, 0x1F);
-		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x7A);
-		sma1307_regmap_write(sma1307, SMA1307_25_COMPLIM3, 0x00);
-		sma1307_regmap_write(sma1307, SMA1307_26_COMPLIM4, 0xFF);
-		sma1307_regmap_write(sma1307,
-					SMA1307_0F_VBAT_TEMP_SENSING, 0x00);
 		break;
 	default:
 		dev_err(component->dev, "%s : Invalid value (%d)\n",
