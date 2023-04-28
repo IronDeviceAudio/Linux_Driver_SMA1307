@@ -34,7 +34,7 @@
 
 #include "sma1307.h"
 
-#define DRIVER_VERSION "V0.0.5"
+#define DRIVER_VERSION "V0.0.6"
 #define CHECK_PERIOD_TIME 1 /* sec per HZ */
 #define GAIN_CONT_5_MIN 30
 #define GAIN_CONT_1_MIN 6
@@ -1548,8 +1548,6 @@ static const struct snd_soc_dapm_widget sma1307_dapm_widgets[] = {
 	SND_SOC_DAPM_OUT_DRV_E("AMP Power", SND_SOC_NOPM, 0, 0, NULL, 0,
 			sma1307_power_event,
 			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_SWITCH("AMP Enable", SND_SOC_NOPM, 0, 0,
-			&sma1307_enable_control),
 
 	/* stream domain */
 	SND_SOC_DAPM_AIF_IN("AIF IN", "Playback", 0, SND_SOC_NOPM, 0, 0),
@@ -1599,12 +1597,10 @@ static const struct snd_soc_dapm_route sma1307_audio_map[] = {
 	{"AMP Mode", "Receiver_Mode2", "Entry"},
 
 	{"AMP Power", NULL, "AMP Mode"},
-
-	{"AMP Enable", "Switch", "AMP Power"},
-	{"SPK", NULL, "AMP Enable"},
+	{"SPK", NULL, "AMP Power"},
 
 	/* Capture */
-	{"AIF OUT", NULL, "AMP Enable"},
+	{"AIF OUT", NULL, "AMP Power"},
 };
 
 static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
