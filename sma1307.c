@@ -34,7 +34,7 @@
 
 #include "sma1307.h"
 
-#define DRIVER_VERSION "V0.0.6"
+#define DRIVER_VERSION "V0.0.7"
 #define CHECK_PERIOD_TIME 1 /* sec per HZ */
 #define GAIN_CONT_5_MIN 30
 #define GAIN_CONT_1_MIN 6
@@ -355,7 +355,7 @@ static const char * const sma1307_aif_out_source_text[] = {
 	"Vrms2_Avg", "Battery", "Temperature", "After_Delay"};
 static const char * const sma1307_amp_mode_text[] = {
 	"Speaker_Mode1", "Speaker_Mode2", "Speaker_Mode3",
-	"Receiver_Mode1", "Receiver_Mode2"};
+	"Speaker_Mode4", "Receiver_Mode1", "Receiver_Mode2"};
 static const char * const sma1307_tdm_slot_text[] = {
 	"Slot0", "Slot1", "Slot2", "Slot3",
 	"Slot4", "Slot5", "Slot6", "Slot7"};
@@ -1593,6 +1593,7 @@ static const struct snd_soc_dapm_route sma1307_audio_map[] = {
 	{"AMP Mode", "Speaker_Mode1", "Entry"},
 	{"AMP Mode", "Speaker_Mode2", "Entry"},
 	{"AMP Mode", "Speaker_Mode3", "Entry"},
+	{"AMP Mode", "Speaker_Mode4", "Entry"},
 	{"AMP Mode", "Receiver_Mode1", "Entry"},
 	{"AMP Mode", "Receiver_Mode2", "Entry"},
 
@@ -1631,6 +1632,7 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_A8_BOOST_CTRL1, 0x05);
 		sma1307_regmap_write(sma1307, SMA1307_A9_BOOST_CTRL2, 0x27);
 		sma1307_regmap_write(sma1307, SMA1307_AB_BOOST_CTRL4, 0x14);
+		sma1307_regmap_write(sma1307, SMA1307_AC_BOOST_CTRL5, 0x10);
 		sma1307_regmap_write(sma1307, SMA1307_AD_BOOST_CTRL6, 0x10);
 		break;
 	case SMA1307_RECEIVER_MODE1:
@@ -1656,9 +1658,36 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_A8_BOOST_CTRL1, 0x05);
 		sma1307_regmap_write(sma1307, SMA1307_A9_BOOST_CTRL2, 0x27);
 		sma1307_regmap_write(sma1307, SMA1307_AB_BOOST_CTRL4, 0x14);
+		sma1307_regmap_write(sma1307, SMA1307_AC_BOOST_CTRL5, 0x10);
 		sma1307_regmap_write(sma1307, SMA1307_AD_BOOST_CTRL6, 0x10);
 		break;
-	case SMA1307_SPEAKER_MODE3:
+	case SMA1307_SPEAKER_MODE4: //bypass mode
+		sma1307_regmap_write(sma1307, SMA1307_0A_SPK_VOL, 0x3B);
+		sma1307->init_vol = 0x3B;
+		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0x50);
+		sma1307_regmap_write(sma1307,
+				SMA1307_0F_VBAT_TEMP_SENSING, 0x08);
+		sma1307_regmap_write(sma1307, SMA1307_11_SYSTEM_CTRL2, 0x21);
+		sma1307_regmap_write(sma1307, SMA1307_13_DELAY, 0x19);
+		sma1307_regmap_write(sma1307, SMA1307_14_MODULATOR, 0x12);
+		sma1307_regmap_write(sma1307, SMA1307_1E_TONE_GENERATOR, 0xA1);
+		sma1307_regmap_write(sma1307, SMA1307_23_COMPLIM1, 0x50);
+		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x0A);
+		sma1307_regmap_write(sma1307, SMA1307_34_OCP_SPK, 0x00);
+		sma1307_regmap_write(sma1307, SMA1307_35_FDPEC_CTRL0, 0x16);
+		sma1307_regmap_write(sma1307, SMA1307_3E_IDLE_MODE_CTRL, 0x05);
+		sma1307_regmap_write(sma1307, SMA1307_8F_ANALOG_TEST, 0x02);
+		sma1307_regmap_write(sma1307, SMA1307_92_FDPEC_CTRL1, 0x50);
+		sma1307_regmap_write(sma1307, SMA1307_94_BOOST_CTRL9, 0xA4);
+		sma1307_regmap_write(sma1307, SMA1307_95_BOOST_CTRL10, 0x54);
+		sma1307_regmap_write(sma1307, SMA1307_96_BOOST_CTRL11, 0x57);
+		sma1307_regmap_write(sma1307, SMA1307_A8_BOOST_CTRL1, 0x04);
+		sma1307_regmap_write(sma1307, SMA1307_A9_BOOST_CTRL2, 0x29);
+		sma1307_regmap_write(sma1307, SMA1307_AB_BOOST_CTRL4, 0x11);
+		sma1307_regmap_write(sma1307, SMA1307_AC_BOOST_CTRL5, 0x50);
+		sma1307_regmap_write(sma1307, SMA1307_AD_BOOST_CTRL6, 0x0F);
+		break;
+	case SMA1307_SPEAKER_MODE3: //boost mode
 		sma1307_regmap_write(sma1307, SMA1307_0A_SPK_VOL, 0x3D);
 		sma1307->init_vol = 0x3D;
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0x50);
@@ -1681,6 +1710,7 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_A8_BOOST_CTRL1, 0x04);
 		sma1307_regmap_write(sma1307, SMA1307_A9_BOOST_CTRL2, 0x29);
 		sma1307_regmap_write(sma1307, SMA1307_AB_BOOST_CTRL4, 0x11);
+		sma1307_regmap_write(sma1307, SMA1307_AC_BOOST_CTRL5, 0x10);
 		sma1307_regmap_write(sma1307, SMA1307_AD_BOOST_CTRL6, 0x0F);
 		break;
 	case SMA1307_SPEAKER_MODE2:
@@ -1706,6 +1736,7 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_A8_BOOST_CTRL1, 0x04);
 		sma1307_regmap_write(sma1307, SMA1307_A9_BOOST_CTRL2, 0x29);
 		sma1307_regmap_write(sma1307, SMA1307_AB_BOOST_CTRL4, 0x11);
+		sma1307_regmap_write(sma1307, SMA1307_AC_BOOST_CTRL5, 0x10);
 		sma1307_regmap_write(sma1307, SMA1307_AD_BOOST_CTRL6, 0x0F);
 		break;
 	case SMA1307_SPEAKER_MODE1:
@@ -1731,6 +1762,7 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_A8_BOOST_CTRL1, 0x04);
 		sma1307_regmap_write(sma1307, SMA1307_A9_BOOST_CTRL2, 0x27);
 		sma1307_regmap_write(sma1307, SMA1307_AB_BOOST_CTRL4, 0x10);
+		sma1307_regmap_write(sma1307, SMA1307_AC_BOOST_CTRL5, 0x10);
 		sma1307_regmap_write(sma1307, SMA1307_AD_BOOST_CTRL6, 0x0F);
 		sma1307_regmap_write(sma1307, SMA1307_99_OTP_TRM2, 0x00);
 		break;
@@ -2252,10 +2284,9 @@ static void sma1307_check_fault_worker(struct work_struct *work)
 	int ret = 0;
 	unsigned int status1_val, status2_val;
 
-	if (sma1307->tsdw_cnt)
-		ret = sma1307_regmap_read(sma1307,
-			SMA1307_0A_SPK_VOL, &sma1307->cur_vol);
-	else
+	ret = sma1307_regmap_read(sma1307,
+		SMA1307_0A_SPK_VOL, &sma1307->cur_vol);
+	if (!(sma1307->tsdw_cnt))
 		ret = sma1307_regmap_read(sma1307,
 			SMA1307_0A_SPK_VOL, &sma1307->init_vol);
 
@@ -2300,7 +2331,6 @@ static void sma1307_check_fault_worker(struct work_struct *work)
 		sma1307_regmap_write(sma1307,
 			SMA1307_0A_SPK_VOL, sma1307->init_vol);
 		sma1307->tsdw_cnt = 0;
-		sma1307->cur_vol = sma1307->init_vol;
 	}
 
 	if (~status1_val & SMA1307_OT2_OK_STATUS) {
@@ -2589,6 +2619,10 @@ static int sma1307_i2c_probe(struct i2c_client *client,
 				dev_info(&client->dev,
 					"Set speaker mode3\n");
 				break;
+			case SMA1307_SPEAKER_MODE4:
+				dev_info(&client->dev,
+					"Set speaker mode4\n");
+				break;
 			case SMA1307_RECEIVER_MODE1:
 				dev_info(&client->dev,
 					"Set receiver mode1\n");
@@ -2607,8 +2641,8 @@ static int sma1307_i2c_probe(struct i2c_client *client,
 		} else {
 			dev_info(&client->dev,
 				"Set speaker mode3(default)\n");
-			sma1307->dapm_amp_mode = SMA1307_SPEAKER_MODE3;
-			sma1307->spk_rcv_mode = SMA1307_SPEAKER_MODE3;
+			sma1307->dapm_amp_mode = SMA1307_SPEAKER_MODE4;
+			sma1307->spk_rcv_mode = SMA1307_SPEAKER_MODE4;
 		}
 		sma1307->gpio_int = of_get_named_gpio(np,
 				"gpio-int", 0);
@@ -2652,7 +2686,6 @@ static int sma1307_i2c_probe(struct i2c_client *client,
 	sma1307->isr_manual_mode = true;
 
 	sma1307->init_vol = 0x32;
-	sma1307->cur_vol = sma1307->init_vol;
 	sma1307->format = SND_SOC_DAIFMT_I2S;
 	sma1307->frame_size = 0;
 	sma1307->last_bclk = 0;
