@@ -34,7 +34,7 @@
 
 #include "sma1307.h"
 
-#define DRIVER_VERSION "V0.0.7"
+#define DRIVER_VERSION "V0.0.8"
 #define CHECK_PERIOD_TIME 1 /* sec per HZ */
 #define GAIN_CONT_5_MIN 30
 #define GAIN_CONT_1_MIN 6
@@ -96,10 +96,8 @@ struct sma1307_priv {
 	struct mutex routing_lock;
 	struct regmap *regmap;
 	struct sma1307_pll_match *pll_matches;
-	unsigned int cur_vol;
 	unsigned int format;
 	unsigned int frame_size;
-	unsigned int init_vol;
 	unsigned int last_bclk;
 	unsigned int otp_trm2;
 	unsigned int otp_trm3;
@@ -107,7 +105,6 @@ struct sma1307_priv {
 	unsigned int sys_clk_id;
 	unsigned int tdm_slot_rx;
 	unsigned int tdm_slot_tx;
-	unsigned int tsdw_cnt;
 };
 
 static struct sma1307_pll_match sma1307_pll_matches[] = {
@@ -182,7 +179,7 @@ static const struct reg_default sma1307_reg_def[] = {
 	{ 0x32, 0xFF }, /* 0x32 BrownOut Protection19  */
 	{ 0x34, 0x00 }, /* 0x34 OCP_SPK  */
 	{ 0x35, 0x16 }, /* 0x35 FDPEC Control0  */
-	{ 0x36, 0x92 }, /* 0x36 Protection  */
+	{ 0x36, 0x91 }, /* 0x36 Protection  */
 	{ 0x37, 0x00 }, /* 0x37 SlopeCTRL  */
 	{ 0x38, 0x01 }, /* 0x38 Power Meter */
 	{ 0x39, 0x10 }, /* 0x39 PMT_NZ_VAL */
@@ -1611,7 +1608,6 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 	switch (sma1307->spk_rcv_mode) {
 	case SMA1307_RECEIVER_MODE2:
 		sma1307_regmap_write(sma1307, SMA1307_0A_SPK_VOL, 0x32);
-		sma1307->init_vol = 0x32;
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0xD0);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0xE8);
@@ -1637,7 +1633,6 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		break;
 	case SMA1307_RECEIVER_MODE1:
 		sma1307_regmap_write(sma1307, SMA1307_0A_SPK_VOL, 0x33);
-		sma1307->init_vol = 0x33;
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0xD0);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0xE8);
@@ -1663,7 +1658,6 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		break;
 	case SMA1307_SPEAKER_MODE4: //bypass mode
 		sma1307_regmap_write(sma1307, SMA1307_0A_SPK_VOL, 0x3B);
-		sma1307->init_vol = 0x3B;
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0x50);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0x08);
@@ -1671,7 +1665,7 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		sma1307_regmap_write(sma1307, SMA1307_13_DELAY, 0x19);
 		sma1307_regmap_write(sma1307, SMA1307_14_MODULATOR, 0x12);
 		sma1307_regmap_write(sma1307, SMA1307_1E_TONE_GENERATOR, 0xA1);
-		sma1307_regmap_write(sma1307, SMA1307_23_COMPLIM1, 0x50);
+		sma1307_regmap_write(sma1307, SMA1307_23_COMPLIM1, 0x53);
 		sma1307_regmap_write(sma1307, SMA1307_24_COMPLIM2, 0x0A);
 		sma1307_regmap_write(sma1307, SMA1307_34_OCP_SPK, 0x00);
 		sma1307_regmap_write(sma1307, SMA1307_35_FDPEC_CTRL0, 0x16);
@@ -1689,7 +1683,6 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		break;
 	case SMA1307_SPEAKER_MODE3: //boost mode
 		sma1307_regmap_write(sma1307, SMA1307_0A_SPK_VOL, 0x3D);
-		sma1307->init_vol = 0x3D;
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0x50);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0x08);
@@ -1715,7 +1708,6 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		break;
 	case SMA1307_SPEAKER_MODE2:
 		sma1307_regmap_write(sma1307, SMA1307_0A_SPK_VOL, 0x31);
-		sma1307->init_vol = 0x31;
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0x50);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0x08);
@@ -1741,7 +1733,6 @@ static int sma1307_spk_rcv_conf(struct snd_soc_component *component)
 		break;
 	case SMA1307_SPEAKER_MODE1:
 		sma1307_regmap_write(sma1307, SMA1307_0A_SPK_VOL, 0x32);
-		sma1307->init_vol = 0x32;
 		sma1307_regmap_write(sma1307, SMA1307_0B_BST_TEST, 0x50);
 		sma1307_regmap_write(sma1307,
 				SMA1307_0F_VBAT_TEMP_SENSING, 0x08);
@@ -2284,12 +2275,6 @@ static void sma1307_check_fault_worker(struct work_struct *work)
 	int ret = 0;
 	unsigned int status1_val, status2_val;
 
-	ret = sma1307_regmap_read(sma1307,
-		SMA1307_0A_SPK_VOL, &sma1307->cur_vol);
-	if (!(sma1307->tsdw_cnt))
-		ret = sma1307_regmap_read(sma1307,
-			SMA1307_0A_SPK_VOL, &sma1307->init_vol);
-
 	if (ret != 0) {
 		dev_err(sma1307->dev,
 			"failed to read SMA1307_0A_SPK_VOL : %d\n", ret);
@@ -2313,26 +2298,7 @@ static void sma1307_check_fault_worker(struct work_struct *work)
 	if (~status1_val & SMA1307_OT1_OK_STATUS) {
 		dev_crit(sma1307->dev,
 			"%s : OT1(Over Temperature Level 1)\n", __func__);
-		/* Volume control (Current Volume -3dB) */
-		if ((sma1307->cur_vol + 6) <= 0xFF)
-			sma1307_regmap_write(sma1307,
-				SMA1307_0A_SPK_VOL, sma1307->cur_vol + 6);
-
-		if (sma1307->check_fault_period > 0)
-			queue_delayed_work(system_freezable_wq,
-				&sma1307->check_fault_work,
-					sma1307->check_fault_period * HZ);
-		else
-			queue_delayed_work(system_freezable_wq,
-				&sma1307->check_fault_work,
-					CHECK_PERIOD_TIME * HZ);
-		sma1307->tsdw_cnt++;
-	} else if (sma1307->tsdw_cnt) {
-		sma1307_regmap_write(sma1307,
-			SMA1307_0A_SPK_VOL, sma1307->init_vol);
-		sma1307->tsdw_cnt = 0;
 	}
-
 	if (~status1_val & SMA1307_OT2_OK_STATUS) {
 		dev_crit(sma1307->dev,
 			"%s : OT2(Over Temperature Level 2)\n", __func__);
@@ -2418,7 +2384,6 @@ static int sma1307_reset(struct snd_soc_component *component)
 			SMA1307_DIS_INT_MASK,
 			SMA1307_HIGH_Z_INT,
 			NULL);
-	sma1307_regmap_write(sma1307, SMA1307_0A_SPK_VOL, sma1307->init_vol);
 	sma1307_spk_rcv_conf(component);
 
 	return 0;
@@ -2685,7 +2650,6 @@ static int sma1307_i2c_probe(struct i2c_client *client,
 	sma1307->check_fault_status = true;
 	sma1307->isr_manual_mode = true;
 
-	sma1307->init_vol = 0x32;
 	sma1307->format = SND_SOC_DAIFMT_I2S;
 	sma1307->frame_size = 0;
 	sma1307->last_bclk = 0;
@@ -2695,7 +2659,6 @@ static int sma1307_i2c_probe(struct i2c_client *client,
 	sma1307->sys_clk_id = SMA1307_PLL_CLKIN_BCLK;
 	sma1307->tdm_slot_rx = 0;
 	sma1307->tdm_slot_tx = 0;
-	sma1307->tsdw_cnt = 0;
 
 	sma1307->dapm_aif_in = 0;
 	sma1307->dapm_aif_out0 = 0;
